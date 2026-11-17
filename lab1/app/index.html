@@ -11,7 +11,37 @@
     <main>
         <h1>Мониторинг сервиса</h1>
         <a href="/health">Проверить состояние сервиса</a>
+        <p>
+            <button type="button" data-path="/error">Создать ошибку</button>
+            <button type="button" data-path="/delay">Создать задержку</button>
+        </p>
+        <pre id="result" role="status">Выбери сценарий.</pre>
     </main>
+    <script>
+        const buttons = document.querySelectorAll("button[data-path]");
+        const result = document.querySelector("#result");
+
+        for (const button of buttons) {
+            button.addEventListener("click", async () => {
+                for (const control of buttons) control.disabled = true;
+                result.textContent = "Выполняется…";
+                const start = performance.now();
+
+                try {
+                    const response = await fetch(button.dataset.path, { method: "POST" });
+                    const data = await response.json();
+                    const elapsed = Math.round(performance.now() - start);
+
+                    result.textContent =
+                        `HTTP ${response.status} · ${elapsed} мс\n${JSON.stringify(data)}`;
+                } catch (error) {
+                    result.textContent = `Ошибка запроса: ${error.message}`;
+                } finally {
+                    for (const control of buttons) control.disabled = false;
+                }
+            });
+        }
+    </script>
 </body>
 
 </html>
