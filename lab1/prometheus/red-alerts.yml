@@ -1,0 +1,37 @@
+groups:
+  - name: fastapi-red
+    rules:
+      - alert: FastAPIHighErrorRate
+        expr: |
+          (
+            sum(rate(http_errors_total{job="fastapi"}[1m]))
+            /
+            sum(rate(http_requests_total{job="fastapi"}[1m]))
+          ) > 0.20
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Доля ответов 5xx выше 20%"
+
+      - alert: FastAPIHighRequestRate
+        expr: sum(rate(http_requests_total{job="fastapi"}[1m])) > 2
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Сервис обрабатывает больше двух запросов в секунду"
+
+      - alert: FastAPIHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(http_request_duration_seconds_bucket{job="fastapi"}[1m])
+            )
+          ) > 1
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Задержка p95 выше одной секунды"
