@@ -67,6 +67,15 @@ services:
       - "127.0.0.1:9093:9093"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alert-webhook/receiver.py:/etc/alert-webhook/receiver.py:ro
+    depends_on:
+      - alert-webhook
+
+  alert-webhook:
+    image: python:3.12-slim
+    command: [ "python", "-u", "/app/receiver.py" ]
+    volumes:
+      - ./alert-webhook/receiver.py:/app/receiver.py:ro
 
 volumes:
   grafana-data:

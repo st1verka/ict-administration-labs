@@ -1,6 +1,10 @@
 route:
-  receiver: local
+  receiver: local-webhook
   group_by: [alertname]
+  group_wait: 5s
 
 receivers:
-  - name: local
+  - name: local-webhook
+    webhook_configs:
+      - url: http://alert-webhook:8080/alerts
+        send_resolved: true
