@@ -1,3 +1,5 @@
+import json
+from datetime import UTC, datetime
 import asyncio
 from pathlib import Path
 from time import perf_counter
@@ -27,7 +29,7 @@ HTTP_DURATION = Histogram(
 
 
 @app.middleware("http")
-async def record_metrics(request: Request, call_next):
+async def record_request(request: Request, call_next):
     if request.url.path == "/metrics":
         return await call_next(request)
 
@@ -48,6 +50,22 @@ async def record_metrics(request: Request, call_next):
 
         if 500 <= status_code < 600:
             HTTP_ERRORS.labels(method, route).inc()
+        print(
+            json.dumps(
+                {
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "level": "ERROR" if status_code >= 500 else "INFO",
+                    "message": "HTTP request processed",
+                    "method": method,
+                    "route": route,
+                    "status": status_code,
+                    "duration_ms": round(elapsed * 1000, 2),
+                    "trace_id": None,
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
 
 
 @app.get("/metrics", include_in_schema=False)
