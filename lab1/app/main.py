@@ -1,11 +1,61 @@
 import asyncio
 from pathlib import Path
+from time import perf_counter
 import httpx
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 app = FastAPI(title="ЛР № 1 — мониторинг")
 index_page = Path(__file__).with_name("index.html")
+
+HTTP_REQUESTS = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "route", "status"],
+)
+HTTP_ERRORS = Counter(
+    "http_errors_total",
+    "Total HTTP 5xx responses",
+    ["method", "route"],
+)
+HTTP_DURATION = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request handling time in seconds",
+    ["method", "route"],
+)
+
+
+@app.middleware("http")
+async def record_metrics(request: Request, call_next):
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    started_at = perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        route = getattr(request.scope.get("route"), "path", "unmatched")
+        method = request.method
+        elapsed = perf_counter() - started_at
+
+        HTTP_REQUESTS.labels(method, route, str(status_code)).inc()
+        HTTP_DURATION.labels(method, route).observe(elapsed)
+
+        if 500 <= status_code < 600:
+            HTTP_ERRORS.labels(method, route).inc()
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics():
+    return Response(
+        content=generate_latest(),
+        headers={"Content-Type": CONTENT_TYPE_LATEST},
+    )
 
 
 @app.get("/", response_class=FileResponse)
