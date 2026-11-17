@@ -44,6 +44,23 @@ services:
     volumes:
       - ./loki/config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.19.2
+    command: [ "run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy" ]
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - type: bind
+        source: ${LAB_DOCKER_SOCKET:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      - loki
+
 volumes:
   grafana-data:
   loki-data:
+  alloy-data:
