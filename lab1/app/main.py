@@ -7,9 +7,24 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import StatusCode
 
 app = FastAPI(title="ЛР № 1 — мониторинг")
 index_page = Path(__file__).with_name("index.html")
+
+tracer_provider = TracerProvider(
+    resource=Resource.create({"service.name": "ict-lab1-app"}),
+)
+tracer_provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter()),
+)
+tracer = tracer_provider.get_tracer(__name__)
 
 HTTP_REQUESTS = Counter(
     "http_requests_total",
@@ -36,6 +51,9 @@ async def record_request(request: Request, call_next):
     started_at = perf_counter()
     status_code = 500
 
+    span_context = trace.get_current_span().get_span_context()
+    trace_id = f"{span_context.trace_id:032x}" if span_context.is_valid else None
+
     try:
         response = await call_next(request)
         status_code = response.status_code
@@ -60,7 +78,7 @@ async def record_request(request: Request, call_next):
                     "route": route,
                     "status": status_code,
                     "duration_ms": round(elapsed * 1000, 2),
-                    "trace_id": None,
+                    "trace_id": trace_id,
                 },
                 ensure_ascii=False,
             ),
@@ -88,12 +106,15 @@ async def health():
 
 @app.post("/error")
 async def create_error():
+    trace.get_current_span().set_status(StatusCode.ERROR, "Учебная ошибка")
     raise HTTPException(status_code=500, detail="Учебная ошибка")
 
 
 @app.post("/delay")
 async def create_delay():
-    await asyncio.sleep(2)
+    with tracer.start_as_current_span("slow-dependency"):
+        await asyncio.sleep(2)
+
     return {"delay_seconds": 2}
 
 
@@ -121,3 +142,10 @@ async def create_load():
         raise HTTPException(status_code=503, detail=result)
 
     return result
+
+
+FastAPIInstrumentor.instrument_app(
+    app,
+    tracer_provider=tracer_provider,
+    excluded_urls=r"/metrics(?:\?.*)?$",
+)
