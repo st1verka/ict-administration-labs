@@ -1,0 +1,70 @@
+name: ict-lab2
+
+services:
+  kafka:
+    image: apache/kafka:4.0.0
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-storage:/var/lib/kafka/data
+    healthcheck:
+      test: [ "CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "kafka:9092" ]
+      interval: 10s
+      timeout: 8s
+      retries: 10
+
+  topic-init:
+    build: ./user-service
+    image: ict-lab2-user
+    command: ["python", "/app/init_topic.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: orders
+      KAFKA_TOPIC_PARTITIONS: "1"
+      KAFKA_TOPIC_REPLICATION_FACTOR: "1"
+    volumes:
+      - ./kafka/init_topic.py:/app/init_topic.py:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  user-service:
+    build: ./user-service
+    image: ict-lab2-user
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: orders
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+
+  picker-service:
+    build: ./picker-service
+    image: ict-lab2-picker
+    ports:
+      - "127.0.0.1:8002:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: orders
+      KAFKA_GROUP_ID: pickers
+      INSTANCE_NAME: picker-1
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+
+volumes:
+  kafka-storage:
