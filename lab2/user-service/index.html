@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User Service</title>
+<body>
+  <h1>Создание заказа</h1>
+  <button id="create">Создать заказ</button>
+  <p id="status" role="status">Заказов пока нет.</p>
+  <pre id="result"></pre>
+  <script>
+    const button = document.querySelector('#create');
+    const status = document.querySelector('#status');
+    const result = document.querySelector('#result');
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      status.textContent = 'Отправляем заказ в Kafka…';
+      result.textContent = '';
+      try {
+        const response = await fetch('/orders', { method: 'POST' });
+        const order = await response.json();
+        status.textContent = response.ok ? 'Kafka подтвердила запись.' : order.detail;
+        if (response.ok) result.textContent = JSON.stringify(order, null, 2);
+      } catch {
+        status.textContent = 'Не удалось связаться с сервисом.';
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

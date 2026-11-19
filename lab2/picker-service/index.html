@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Picker Service</title>
+<body>
+  <h1>Сборка заказов</h1>
+  <p id="status" role="status">Загружаем состояние сборщика…</p>
+  <ol id="orders"></ol>
+  <script>
+    const status = document.querySelector('#status');
+    const orders = document.querySelector('#orders');
+
+    async function refresh() {
+      try {
+        const response = await fetch('/orders');
+        if (!response.ok) throw new Error();
+        const state = await response.json();
+        const pending = state.orders.length ? '' : ' · Обработанных заказов пока нет';
+        status.textContent = state.instance + ' · Группа ' + state.group + pending;
+        const rows = state.orders.map(order => {
+          const row = document.createElement('li');
+          row.textContent = [
+            order.order_id,
+            order.items.join(', '),
+            'partition ' + order.partition,
+            'offset ' + order.offset,
+            order.instance
+          ].join(' · ');
+          return row;
+        });
+        orders.replaceChildren(...rows);
+      } catch {
+        status.textContent = 'Не удалось обновить список заказов.';
+      } finally {
+        setTimeout(refresh, 1000);
+      }
+    }
+
+    refresh();
+  </script>
+</body>
+</html>
