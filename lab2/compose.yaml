@@ -32,7 +32,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: orders
-      KAFKA_TOPIC_PARTITIONS: "1"
+      KAFKA_TOPIC_PARTITIONS: "3"
       KAFKA_TOPIC_REPLICATION_FACTOR: "1"
     volumes:
       - ./kafka/init_topic.py:/app/init_topic.py:ro
@@ -62,6 +62,51 @@ services:
       KAFKA_TOPIC: orders
       KAFKA_GROUP_ID: pickers
       INSTANCE_NAME: picker-1
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+
+  picker-service-2:
+    profiles: ["scaling-demo"]
+    build: ./picker-service
+    image: ict-lab2-picker
+    ports:
+      - "127.0.0.1:8003:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: orders
+      KAFKA_GROUP_ID: pickers
+      INSTANCE_NAME: picker-2
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+
+  picker-service-3:
+    profiles: ["scaling-demo"]
+    build: ./picker-service
+    image: ict-lab2-picker
+    ports:
+      - "127.0.0.1:8004:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: orders
+      KAFKA_GROUP_ID: pickers
+      INSTANCE_NAME: picker-3
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+
+  picker-service-4:
+    profiles: ["scaling-demo"]
+    build: ./picker-service
+    image: ict-lab2-picker
+    ports:
+      - "127.0.0.1:8005:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: orders
+      KAFKA_GROUP_ID: pickers
+      INSTANCE_NAME: picker-4
     depends_on:
       topic-init:
         condition: service_completed_successfully
