@@ -1,0 +1,42 @@
+{
+  "uid": "lab3-postgres",
+  "title": "Лабораторная 3 — PostgreSQL",
+  "schemaVersion": 39,
+  "refresh": "5s",
+  "time": {"from": "now-5m", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Доступность PostgreSQL (1 — доступен)",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "lab3-prometheus"},
+      "targets": [{"refId": "A", "expr": "pg_up{job=\"postgres\"}", "legendFormat": "{{db_role}}"}]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Роль узла (0 — primary, 1 — standby)",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "lab3-prometheus"},
+      "targets": [{"refId": "A", "expr": "pg_replication_is_replica{job=\"postgres\"}", "legendFormat": "{{db_role}}"}]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Отставание по WAL",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "lab3-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "pg_stat_replication_pg_wal_lsn_diff{db_role=\"primary\",state=\"streaming\"}", "legendFormat": "{{application_name}}"}]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Подключения к базе lab3",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "lab3-prometheus"},
+      "targets": [{"refId": "A", "expr": "pg_stat_database_numbackends{datname=\"lab3\"}", "legendFormat": "{{db_role}}"}]
+    }
+  ]
+}

@@ -58,6 +58,59 @@ services:
     ports:
       - "127.0.0.1:8080:8000"
 
+  rejoined:
+    image: postgres:16
+    profiles: [ recovery ]
+
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?Set REPLICATION_PASSWORD in .env}
+      UPSTREAM_HOST: standby
+      STANDBY_NAME: rejoined
+    entrypoint: [ "/bin/bash", "/opt/init-standby.sh" ]
+    volumes:
+      - rejoined-data:/var/lib/postgresql/data
+      - ./postgres/init-standby.sh:/opt/init-standby.sh:ro
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3" ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  exporter-primary:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_URI: "${MONITOR_PRIMARY_HOST:-primary}:5432/lab3?sslmode=disable"
+      DATA_SOURCE_USER: lab_admin
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+
+  exporter-standby:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_URI: "${MONITOR_STANDBY_HOST:-standby}:5432/lab3?sslmode=disable"
+      DATA_SOURCE_USER: lab_admin
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:13.2.1
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+
 volumes:
   primary-data:
   standby-data:
+  rejoined-data:
+  prometheus-data:
+  grafana-data:
