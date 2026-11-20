@@ -17,8 +17,9 @@ services:
     volumes:
       - primary-data:/var/lib/postgresql/data
       - ./postgres/init-primary.sh:/docker-entrypoint-initdb.d/01-replication.sh:ro
+      - ./postgres/02-orders.sql:/docker-entrypoint-initdb.d/02-orders.sql:ro
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3"]
+      test: [ "CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3" ]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -31,15 +32,31 @@ services:
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
       REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?Set REPLICATION_PASSWORD in .env}
-    entrypoint: ["/bin/bash", "/opt/init-standby.sh"]
+    entrypoint: [ "/bin/bash", "/opt/init-standby.sh" ]
     volumes:
       - standby-data:/var/lib/postgresql/data
       - ./postgres/init-standby.sh:/opt/init-standby.sh:ro
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3"]
+      test: [ "CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3" ]
       interval: 2s
       timeout: 3s
       retries: 30
+
+  app:
+    build: ./app
+    depends_on:
+      primary:
+        condition: service_healthy
+      standby:
+        condition: service_healthy
+    environment:
+      WRITE_DB_HOST: ${WRITE_DB_HOST:-primary}
+      READ_DB_HOST: ${READ_DB_HOST:-standby}
+      DB_NAME: lab3
+      DB_USER: lab_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:8080:8000"
 
 volumes:
   primary-data:

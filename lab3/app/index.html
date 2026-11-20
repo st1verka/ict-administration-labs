@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Заказы · PostgreSQL</title>
+  <style>
+    body { font: 16px system-ui, sans-serif; max-width: 680px; margin: 3rem auto; padding: 0 1rem; }
+    button { font: inherit; padding: .5rem .75rem; margin: 0 .5rem .5rem 0; cursor: pointer; }
+    li { padding: .3rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Заказы</h1>
+  <button id="create">Создать заказ</button>
+  <button id="load">Налить нагрузку (1 000)</button>
+  <p id="write-status" role="status"></p>
+
+  <h2>Последние 10 заказов</h2>
+  <button id="refresh">Обновить список</button>
+  <p id="read-status" role="status"></p>
+  <ul id="orders"></ul>
+
+  <script>
+    const writeStatus = document.querySelector("#write-status");
+    const readStatus = document.querySelector("#read-status");
+    const ordersList = document.querySelector("#orders");
+
+    async function request(path, method = "GET") {
+      const response = await fetch(path, { method, cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      return data;
+    }
+
+    async function refreshOrders() {
+      try {
+        const data = await request("/api/orders");
+        const role = data.is_standby ? "реплика" : "основной узел";
+        readStatus.textContent = `Чтение: ${data.read_host} (${role})`;
+        ordersList.replaceChildren(...data.orders.map(order => {
+          const item = document.createElement("li");
+          item.textContent = `#${order.id} — ${new Date(order.created_at).toLocaleString("ru-RU")}`;
+          return item;
+        }));
+      } catch (error) {
+        readStatus.textContent = error.message;
+        ordersList.replaceChildren();
+      }
+    }
+
+    async function writeOrders(path) {
+      try {
+        const data = await request(path, "POST");
+        writeStatus.textContent =
+          `Запись: ${data.write_host}. Создано: ${data.count}. Последний заказ: #${data.last_id}`;
+      } catch (error) {
+        writeStatus.textContent = error.message;
+      }
+      await refreshOrders();
+    }
+
+    document.querySelector("#create").onclick = () => writeOrders("/api/orders");
+    document.querySelector("#load").onclick = () => writeOrders("/api/orders/load");
+    document.querySelector("#refresh").onclick = refreshOrders;
+    refreshOrders();
+  </script>
+</body>
+</html>
