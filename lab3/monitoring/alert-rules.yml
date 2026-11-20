@@ -1,0 +1,36 @@
+groups:
+  - name: postgres-lab3
+    interval: 5s
+    rules:
+      - alert: PostgreSQLUnavailable
+        expr: |
+          (pg_up{job="postgres"} == 0)
+          or on (job, instance) (up{job="postgres"} == 0)
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL или его экспортёр недоступен"
+
+      - alert: PostgreSQLReplicationLagHigh
+        expr: |
+          pg_stat_replication_pg_wal_lsn_diff{
+            job="postgres", db_role="primary", state="streaming"
+          } > 65536
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Отставание реплики превышает 64 КиБ WAL"
+
+      - alert: PostgreSQLStandbyNotStreaming
+        expr: |
+          absent(pg_stat_replication_pg_wal_lsn_diff{
+            job="postgres", db_role="primary", state="streaming"
+          })
+          and on (job, db_role) (pg_up{job="postgres", db_role="primary"} == 1)
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Основной узел доступен, но активной потоковой реплики нет"

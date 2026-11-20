@@ -96,6 +96,7 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
+      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
     ports:
       - "127.0.0.1:9090:9090"
 
