@@ -1,0 +1,46 @@
+services:
+  primary:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: lab3
+      POSTGRES_USER: lab_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?Set REPLICATION_PASSWORD in .env}
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=5
+      - -c
+      - wal_keep_size=256MB
+    volumes:
+      - primary-data:/var/lib/postgresql/data
+      - ./postgres/init-primary.sh:/docker-entrypoint-initdb.d/01-replication.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  standby:
+    image: postgres:16
+    depends_on:
+      primary:
+        condition: service_healthy
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?Set REPLICATION_PASSWORD in .env}
+    entrypoint: ["/bin/bash", "/opt/init-standby.sh"]
+    volumes:
+      - standby-data:/var/lib/postgresql/data
+      - ./postgres/init-standby.sh:/opt/init-standby.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lab_admin", "-d", "lab3"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  primary-data:
+  standby-data:
