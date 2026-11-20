@@ -1,0 +1,57 @@
+services:
+  exporter-setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.6
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+      ES_EXPORTER_PASSWORD: ${ES_EXPORTER_PASSWORD:?Set ES_EXPORTER_PASSWORD in .env}
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        curl -fsS -u "elastic:$$ELASTIC_PASSWORD" \
+          -H 'Content-Type: application/json' \
+          -X PUT http://elasticsearch:9200/_security/role/lab4_metrics \
+          -d '{"cluster":["monitor"]}'
+        printf '{"password":"%s","roles":["lab4_metrics"]}' "$$ES_EXPORTER_PASSWORD" |
+          curl -fsS -u "elastic:$$ELASTIC_PASSWORD" \
+            -H 'Content-Type: application/json' \
+            -X PUT http://elasticsearch:9200/_security/user/lab4_exporter \
+            --data-binary @-
+
+  elasticsearch-exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:v1.11.0
+    depends_on:
+      exporter-setup:
+        condition: service_completed_successfully
+    command: ["--es.uri=http://elasticsearch:9200"]
+    environment:
+      ES_USERNAME: lab4_exporter
+      ES_PASSWORD: ${ES_EXPORTER_PASSWORD:?Set ES_EXPORTER_PASSWORD in .env}
+
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    depends_on:
+      - elasticsearch-exporter
+    ports:
+      - "127.0.0.1:9094:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.1
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:3004:3000"
+    volumes:
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prometheus-data:
+  grafana-data:
