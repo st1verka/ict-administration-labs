@@ -1,0 +1,23 @@
+groups:
+  - name: lab5-nginx
+    interval: 10s
+    rules:
+      - alert: NginxTelemetryUnavailable
+        expr: up{job="nginx"} == 0 or nginx_up{job="nginx"} == 0
+        for: 30s
+        annotations:
+          summary: "NGINX metrics are unavailable"
+
+      - alert: NginxHighActiveConnections
+        expr: nginx_connections_active{job="nginx"} > 100
+        for: 1m
+        annotations:
+          summary: "Active connections exceed the lab threshold"
+
+      - alert: NginxUnhandledConnections
+        expr: |
+          increase(nginx_connections_accepted{job="nginx"}[5m])
+          - increase(nginx_connections_handled{job="nginx"}[5m]) > 0
+        for: 30s
+        annotations:
+          summary: "NGINX accepted connections it did not handle"

@@ -1,0 +1,120 @@
+{
+  "uid": "lab5-nginx",
+  "title": "Lab 5 – NGINX Monitoring",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "NGINX availability",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab5-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab5-prometheus"
+          },
+          "expr": "nginx_up{job=\"nginx\"}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Active connections",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab5-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab5-prometheus"
+          },
+          "expr": "nginx_connections_active{job=\"nginx\"}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP requests per second",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab5-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab5-prometheus"
+          },
+          "expr": "rate(nginx_http_requests_total{job=\"nginx\"}[2m])",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Unhandled connections in 5 min",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab5-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab5-prometheus"
+          },
+          "expr": "clamp_min(increase(nginx_connections_accepted{job=\"nginx\"}[5m]) - increase(nginx_connections_handled{job=\"nginx\"}[5m]), 0)",
+          "instant": false,
+          "range": true
+        }
+      ]
+    }
+  ]
+}
