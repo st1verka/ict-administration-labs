@@ -119,6 +119,32 @@ services:
           - gitlab.local
           - registry.gitlab.local
 
+  runner-static:
+    image: gitlab/gitlab-runner:alpine-v19.5.3
+    restart: unless-stopped
+    volumes:
+      - ./runners/static/state:/etc/gitlab-runner
+      - ./nginx/certs/gitlab.local.crt:/etc/gitlab-runner/certs/gitlab.local.crt:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nginx
+
+  runner-k8s:
+    image: gitlab/gitlab-runner:alpine-v19.5.3
+    restart: unless-stopped
+    environment:
+      KUBECONFIG: /etc/kind-api/kubeconfig
+    volumes:
+      - ./runners/k8s/state:/etc/gitlab-runner
+      - ./runners/k8s/kubeconfig:/etc/kind-api/kubeconfig:ro
+      - ./runners/k8s/runner.template.toml:/etc/kind-api/runner.template.toml:ro
+      - ./nginx/certs/gitlab.local.crt:/etc/gitlab-runner/certs/gitlab.local.crt:ro
+    depends_on:
+      - nginx
+    networks:
+      - default
+      - kind-net
+
 volumes:
   keycloak-data:
   gitlab-config:
@@ -132,3 +158,6 @@ networks:
       config:
         - subnet: 172.30.0.0/24
           gateway: 172.30.0.1
+  kind-net:
+    external: true
+    name: kind

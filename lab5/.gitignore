@@ -6,3 +6,7 @@ __pycache__/
 /runners/k8s/kubeconfig
 
 /nginx/certs/
+
+/runners/static/state/
+
+/runners/k8s/state/

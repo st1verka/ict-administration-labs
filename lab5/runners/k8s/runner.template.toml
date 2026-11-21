@@ -1,0 +1,10 @@
+[[runners]]
+  [runners.kubernetes]
+    helper_image_autoset_arch_and_os = true
+    context = "kind-lab5-ci"
+    namespace = "gitlab-runner"
+    image = "alpine:3.22"
+
+    [[runners.kubernetes.host_aliases]]
+      ip = "172.30.0.10"
+      hostnames = ["gitlab.local", "registry.gitlab.local"]
