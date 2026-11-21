@@ -24,12 +24,17 @@ services:
   gitlab:
     image: gitlab/gitlab-ce:19.5.8-ce.0
     shm_size: 256m
-    ports:
-      - "127.0.0.1:8929:8929"
     environment:
       GITLAB_OIDC_SECRET: "${GITLAB_OIDC_SECRET:?Set it in .env}"
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://gitlab.local:8929'
+        external_url 'https://gitlab.local'
+        letsencrypt['enable'] = false
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+
+        registry_external_url 'https://registry.gitlab.local'
+        registry_nginx['listen_port'] = 5050
+        registry_nginx['listen_https'] = false
         puma['worker_processes'] = 0
         sidekiq['concurrency'] = 10
         prometheus_monitoring['enable'] = false
@@ -55,7 +60,7 @@ services:
               client_options: {
                 identifier: 'gitlab',
                 secret: ENV.fetch('GITLAB_OIDC_SECRET'),
-                redirect_uri: 'http://gitlab.local:8929/users/auth/openid_connect/callback',
+                redirect_uri: 'https://gitlab.local/users/auth/openid_connect/callback',
                 scheme: 'http',
                 host: 'keycloak.local',
                 port: 8080,
@@ -97,9 +102,33 @@ services:
     depends_on:
       - keycloak
 
+  nginx:
+    image: nginx:1.28-alpine
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - gitlab
+    networks:
+      default:
+        ipv4_address: 172.30.0.10
+        aliases:
+          - gitlab.local
+          - registry.gitlab.local
+
 volumes:
   keycloak-data:
   gitlab-config:
   gitlab-logs:
   gitlab-data:
   grafana-data:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1

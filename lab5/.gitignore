@@ -4,3 +4,5 @@ __pycache__/
 *.key
 /runners/*/config.toml
 /runners/k8s/kubeconfig
+
+/nginx/certs/
