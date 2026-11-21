@@ -1,0 +1,45 @@
+{
+  "realm": "devplatform",
+  "enabled": true,
+  "sslRequired": "none",
+  "users": [
+    {
+      "username": "labuser",
+      "enabled": true,
+      "email": "labuser@example.test",
+      "emailVerified": true,
+      "firstName": "Lab",
+      "lastName": "User",
+      "credentials": [
+        {"type": "password", "value": "${LAB_USER_PASSWORD}", "temporary": false}
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "gitlab",
+      "name": "GitLab",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "${GITLAB_OIDC_SECRET}",
+      "redirectUris": [
+        "http://gitlab.local:8929/users/auth/openid_connect/callback",
+        "https://gitlab.local/users/auth/openid_connect/callback"
+      ]
+    },
+    {
+      "clientId": "grafana",
+      "name": "Grafana",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "${GRAFANA_OIDC_SECRET}",
+      "redirectUris": [
+        "http://grafana.local:3000/login/generic_oauth"
+      ]
+    }
+  ]
+}

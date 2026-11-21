@@ -1,0 +1,105 @@
+name: lab5
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?Set it in .env}"
+      KC_HOSTNAME: http://keycloak.local:8080
+      LAB_USER_PASSWORD: "${LAB_USER_PASSWORD:?Set it in .env}"
+      GITLAB_OIDC_SECRET: "${GITLAB_OIDC_SECRET:?Set it in .env}"
+      GRAFANA_OIDC_SECRET: "${GRAFANA_OIDC_SECRET:?Set it in .env}"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-lab.json:/opt/keycloak/data/import/devplatform-realm.json:ro
+    networks:
+      default:
+        aliases:
+          - keycloak.local
+
+  gitlab:
+    image: gitlab/gitlab-ce:19.5.8-ce.0
+    shm_size: 256m
+    ports:
+      - "127.0.0.1:8929:8929"
+    environment:
+      GITLAB_OIDC_SECRET: "${GITLAB_OIDC_SECRET:?Set it in .env}"
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.local:8929'
+        puma['worker_processes'] = 0
+        sidekiq['concurrency'] = 10
+        prometheus_monitoring['enable'] = false
+
+        issuer = 'http://keycloak.local:8080/realms/devplatform'
+        oidc = "#{issuer}/protocol/openid-connect"
+        gitlab_rails['omniauth_enabled'] = true
+        gitlab_rails['omniauth_allow_single_sign_on'] = ['openid_connect']
+        gitlab_rails['omniauth_block_auto_created_users'] = false
+        gitlab_rails['omniauth_providers'] = [
+          {
+            name: 'openid_connect',
+            label: 'Keycloak',
+            args: {
+              name: 'openid_connect',
+              scope: ['openid', 'profile', 'email'],
+              response_type: 'code',
+              issuer: issuer,
+              discovery: false,
+              client_auth_method: 'query',
+              uid_field: 'preferred_username',
+              pkce: true,
+              client_options: {
+                identifier: 'gitlab',
+                secret: ENV.fetch('GITLAB_OIDC_SECRET'),
+                redirect_uri: 'http://gitlab.local:8929/users/auth/openid_connect/callback',
+                scheme: 'http',
+                host: 'keycloak.local',
+                port: 8080,
+                authorization_endpoint: "#{oidc}/auth",
+                token_endpoint: "#{oidc}/token",
+                userinfo_endpoint: "#{oidc}/userinfo",
+                jwks_uri: "#{oidc}/certs"
+              }
+            }
+          }
+        ]
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    depends_on:
+      - keycloak
+
+  grafana:
+    image: grafana/grafana:13.0.13-ubuntu
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SERVER_ROOT_URL: http://grafana.local:3000/
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: Keycloak
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "${GRAFANA_OIDC_SECRET:?Set it in .env}"
+      GF_AUTH_GENERIC_OAUTH_SCOPES: openid profile email
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: http://keycloak.local:8080/realms/devplatform/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: http://keycloak.local:8080/realms/devplatform/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: http://keycloak.local:8080/realms/devplatform/protocol/openid-connect/userinfo
+      GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH: preferred_username
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "preferred_username == 'labuser' && 'Admin' || 'Viewer'"
+      GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - keycloak
+
+volumes:
+  keycloak-data:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+  grafana-data:
